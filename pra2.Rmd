@@ -1,0 +1,90 @@
+---
+title: "PRA2-Tipologia"
+author: "David Lucas, Javier Cantero"
+date: "25/5/2022"
+output: 
+  pdf_document:
+    number_sections: yes
+    highlight: zenburn
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE}
+# PAQUETES
+
+```
+
+# Descripción del dataset  
+
+Para llevar a cabo el desarrollo de esta práctica, se utilizará el dataset obtenido en la Práctica 1. Este dataset contiene datos de cada uno de los jugadores que hayan interactuado con la NBA durante un periodo de tiempo específico (última temporada) y recoge todas las estadísticas acumuladas. Adicionalmente, el dataset incluye la variable PER1 (player efficiency rating) que permite evaluar la eficiencia del jugador con respecto a las estadísticas totales de la temporada. Mediante esta variable, se podrá conocer cómo ha sido el rendimiento del jugador y poder comparar con el resto de jugadores de una manera rápida y sencilla. 
+
+Es imporante porque demuestra que los resultados de un jugador se pueden llegar a evaluar a partir de métricas y se pueden realizar predicciones de los resultados que continuará obteniendo.
+
+Pretende ser capaz de facilitar las predicciones de MVPs de la temporada a través de los datos de los jugadores.
+
+
+
+# Integración y selección de los datos de interés a analizar
+
+Lo primero que se hará es abrir el dataset.  
+
+```{r}
+
+playerstats <- read.csv("NBAPlayerStatistics_20-21.csv", stringsAsFactors = FALSE)
+
+head(playerstats)
+
+```
+
+Vemos los 6 primeros valores del dataset, donde ya se aprecia que para el jugador Aaron Gordon existen 2 registros. Esto es debido a que ha jugado en 2 equipos distintos a lo largo de la temporada y se guardan sus estadísticas por separado.  
+
+En esta colección de datos de los jugadores, sólo podemos encontrar estadísticas de los partidos, pero también sería interesante conocer su edad y su posición. Para incluir esta información, utilizaremos un dataset público de kaggle: https://www.kaggle.com/datasets/umutalpaydn/nba-20202021-season-player-stats?resource=download
+
+```{r}
+
+playerstats2 <- read.csv("nba2021_advanced.csv", stringsAsFactors = FALSE)
+
+summary(playerstats2)
+
+```
+
+En este dataset podemos encontrar la posición y la edad a través de su nombre. A continuación, obtendremos esta información y la incluiremos en el dataset original.  
+
+```{r}
+
+# playerstats["Age"] <- playerstats2$Age[playerstats2$Player == playerstats$Nombre]
+playerstats["Age"] <- NULL
+playerstats["Pos"] <- NULL
+
+for (i in 1:length(playerstats$Nombre)){
+  for (j in 1:length(playerstats2$Player))
+    if(playerstats$Nombre[i] == playerstats2$Player[j]){
+      playerstats$Age[i] <- playerstats2$Age[j]
+      playerstats$Pos[i] <- playerstats2$Pos[j]
+    }
+}
+
+playerstats <- playerstats[,c(1,2,20,21,3:19)]
+
+```
+
+Ya tenemos el dataset final con la información de la edad y posición de cada jugador además de las estadísticas de partidos. Veremos si se han quedado jugadores sin esta información:  
+
+```{r}
+
+sum(is.na(playerstats["Age"]))
+sum(is.na(playerstats["Pos"]))
+```
+
+Vemos que todos los jugadores tienen adjudicada su edad y su posición, así que volveremos a ver un resumen de los datos.
+
+```{r}
+summary(playerstats)
+```
+
+Teniendo la edad se puede extraer información útil respecto a su rendimiento, pudiendo conocer si la edad está relacionada en bajar sus estadísticas. También podremos tener en cuenta la posición a la hora de evaluarlas, pues no todas las posiciones tienen las mismas funciones en el partido.  
+
