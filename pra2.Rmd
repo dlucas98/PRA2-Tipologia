@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r echo=FALSE}
 # PAQUETES
-
+if (!require('nortest')) install.packages('nortest'); library('nortest')
 ```
 
 # Descripción del dataset  
@@ -86,5 +86,112 @@ Vemos que todos los jugadores tienen adjudicada su edad y su posición, así que
 summary(playerstats)
 ```
 
+
 Teniendo la edad se puede extraer información útil respecto a su rendimiento, pudiendo conocer si la edad está relacionada en bajar sus estadísticas. También podremos tener en cuenta la posición a la hora de evaluarlas, pues no todas las posiciones tienen las mismas funciones en el partido.  
+
+Una vez tenemos todos los datos, nos quedaremos únicamente con los que necesarios. Tanto para los tiros de 2 y 3 puntos como para los tiros libres tenemos un par de variables: los aciertos y los intentos. Esta información la podemos reducir al porcentaje de aciertos de modo que se simplifique el dataset.  
+
+
+```{r}
+
+playerstats["FG2%"] <- round((playerstats["FG"] - playerstats["FG3"]) / (playerstats["FGA"] - playerstats["FG3A"]), 2)
+
+playerstats["FG3%"] <- round(playerstats["FG3"] / playerstats["FG3A"], 2)
+
+playerstats["FT%"] <- round(playerstats["FT"] / playerstats["FTA"], 2)
+
+```
+
+Ahora nos quedaremos con las nuevas variables y el resto de variables útiles.  
+
+```{r}
+
+playerstats <- playerstats[,c(1:5,22:24,12:21)]
+
+```
+
+# Limpieza de los datos
+## Ceros y elementos vacíos
+```{r}
+
+colSums(is.na(playerstats))
+
+```
+
+Vemos que para las variables de porcentajes de tiros existen algunos registros con valores NaN.
+
+```{r}
+
+colSums(playerstats==""|playerstats==" ")
+
+```
+
+En cambio, no existen valores vacíos.
+
+Para tratar los NaN, no podemos eliminar los registros. Es por esto que el tratamiento que se le dará será colocar un 0.  
+
+```{r}
+
+playerstats$`FG2%`[is.na(playerstats$`FG2%`)] <- 0.00
+
+playerstats$`FG3%`[is.na(playerstats$`FG3%`)] <- 0.00
+
+playerstats$`FT%`[is.na(playerstats$`FT%`)] <- 0.00
+
+
+# Comprobación de que ya no hay valores NaN 
+colSums(is.na(playerstats))
+
+```
+
+## Identificación y gestión de valores extremos
+Para los outliers, 
+
+```{r}
+
+# Diagramas de caja
+par(mfrow = c(1, 2))
+box_MP <- boxplot(playerstats$MP,main="MP outliers")
+box_G <- boxplot(playerstats$G,main="G outliers")
+
+# Valores más bajos dentro de la caja, a partir de donde hay outliers inferiores
+box_MP$stats[2]
+box_G$stats[2]
+
+# Eliminación de registros considerados como outliers
+playerstats <- playerstats[playerstats$MP > box_MP$stats[2],]
+playerstats <- playerstats[playerstats$G > box_G$stats[2],]
+
+```
+
+# Análisis de los datos
+## Selección de los grupos de datos que se quieren analizar/comparar
+
+## Comprobación de la normalidad y homogeneidad de la varianza
+```{r}
+
+pearson.test(playerstats$PER)
+lillie.test(playerstats$PER)
+cvm.test(playerstats$PER)
+ad.test(playerstats$PER)
+
+plot(density(playerstats$PER), lwd=3, col='blue',
+     xlim=c(0, 40), main='', las=1,
+     xlab='Peso (kg)', ylab='Densidad')
+
+qqnorm(playerstats$PER, main=bquote(~ n == .(playerstats$PER)))
+  qqline(playerstats$PER)  # Para agregar la linea de referencia
+```
+
+## Aplicación de pruebas estadísticas para comparar los grupos de datos
+### Regresión lineal, qué variables influyen más?
+Debido a que el PER se calcula a partir de las variables de los volúmenes de tiro, se puede crear un modelo de predicción para predecir esta variable.
+
+### Contraste de hipótesis
+Influye la edad en el rendimiento? Se ve reflejado en el PER?
+
+### Contraste de hipótesis (?)
+Los jugadores de la posicion CENTER tienen un mejor PER?
+
+# Resolución del problema
 
