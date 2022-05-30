@@ -16,11 +16,12 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r echo=FALSE}
 # PAQUETES
 if (!require('nortest')) install.packages('nortest'); library('nortest')
+if (!require('dplyr')) install.packages('dplyr'); library('dplyr')
 ```
 
 # Descripción del dataset  
 
-Para llevar a cabo el desarrollo de esta práctica, se utilizará el dataset obtenido en la Práctica 1. Este dataset contiene datos de cada uno de los jugadores que hayan interactuado con la NBA durante un periodo de tiempo específico (última temporada) y recoge todas las estadísticas acumuladas. Adicionalmente, el dataset incluye la variable PER1 (player efficiency rating) que permite evaluar la eficiencia del jugador con respecto a las estadísticas totales de la temporada. Mediante esta variable, se podrá conocer cómo ha sido el rendimiento del jugador y poder comparar con el resto de jugadores de una manera rápida y sencilla. 
+Para llevar a cabo el desarrollo de esta práctica, se utilizará el dataset obtenido en la Práctica 1. Este dataset contiene datos de cada uno de los jugadores que hayan interactuado con la NBA durante un periodo de tiempo específico (última temporada) y recoge todas las estadísticas acumuladas. Adicionalmente, el dataset incluye la variable PER (player efficiency rating) que permite evaluar la eficiencia del jugador con respecto a las estadísticas totales de la temporada. Mediante esta variable, se podrá conocer cómo ha sido el rendimiento del jugador y poder comparar con el resto de jugadores de una manera rápida y sencilla. 
 
 Es imporante porque demuestra que los resultados de un jugador se pueden llegar a evaluar a partir de métricas y se pueden realizar predicciones de los resultados que continuará obteniendo.
 
@@ -30,36 +31,29 @@ Pretende ser capaz de facilitar las predicciones de MVPs de la temporada a trav�
 
 # Integración y selección de los datos de interés a analizar
 
-Lo primero que se hará es abrir el dataset.  
+Para comenzar con el tratamiento de los datos, se realiza la carga del dataset creado en la primera práctica de la asignatura:
 
 ```{r}
-
 playerstats <- read.csv("NBAPlayerStatistics_20-21.csv", stringsAsFactors = FALSE)
-
 head(playerstats)
-
 ```
 
-Vemos los 6 primeros valores del dataset, donde ya se aprecia que para el jugador Aaron Gordon existen 2 registros. Esto es debido a que ha jugado en 2 equipos distintos a lo largo de la temporada y se guardan sus estadísticas por separado.  
+Una vez cargada la información, mostramos la cabecera de este. En los primero registros del conjunto de datos podemos observar que el jugador Aaron Gordon se encuentra dos veces debido a que el jugador fue traspasado de un equipo a otro durante el transcurso de la temporada. Ante esta situación, se ha decidido matener los dos registros ya que la información que refleja cada uno de estos se ve influida por el contexto del equipo en el que jugó el jugador.
 
-En esta colección de datos de los jugadores, sólo podemos encontrar estadísticas de los partidos, pero también sería interesante conocer su edad y su posición. Para incluir esta información, utilizaremos un dataset público de kaggle: https://www.kaggle.com/datasets/umutalpaydn/nba-20202021-season-player-stats?resource=download
+Además del conjunto de datos creado en la prácitca anterior, se ha decidido incluir a este información adicional proveniente del conjunto de datos Nba 2020-2021 Season Player Stats del repositorio de Kaggle (https://www.kaggle.com/datasets/umutalpaydn/nba-20202021-season-player-stats?resource=download). Por lo tanto, se pasa a realizar la carga de este conjunto de datos adicional:
+
 
 ```{r}
-
 playerstats2 <- read.csv("nba2021_advanced.csv", stringsAsFactors = FALSE)
-
 summary(playerstats2)
-
 ```
+De este conjunto de datos, se ha decidido seleccionar las variales de posición(POS) y edad(Age) ya que estas enriquecen el conjunto de datos creado en la primera práctica de la asignatura. Por lo tanto, se pasa a realizar la asignación a cada jugador de su posición y edad durante la temporada 2020-2021:
 
-En este dataset podemos encontrar la posición y la edad a través de su nombre. A continuación, obtendremos esta información y la incluiremos en el dataset original.  
 
 ```{r}
-
 # playerstats["Age"] <- playerstats2$Age[playerstats2$Player == playerstats$Nombre]
 playerstats["Age"] <- NULL
 playerstats["Pos"] <- NULL
-
 for (i in 1:length(playerstats$Nombre)){
   for (j in 1:length(playerstats2$Player))
     if(playerstats$Nombre[i] == playerstats2$Player[j]){
@@ -67,131 +61,153 @@ for (i in 1:length(playerstats$Nombre)){
       playerstats$Pos[i] <- playerstats2$Pos[j]
     }
 }
-
 playerstats <- playerstats[,c(1,2,20,21,3:19)]
-
-```
-
-Ya tenemos el dataset final con la información de la edad y posición de cada jugador además de las estadísticas de partidos. Veremos si se han quedado jugadores sin esta información:  
-
-```{r}
-
-sum(is.na(playerstats["Age"]))
-sum(is.na(playerstats["Pos"]))
-```
-
-Vemos que todos los jugadores tienen adjudicada su edad y su posición, así que volveremos a ver un resumen de los datos.
-
-```{r}
-summary(playerstats)
 ```
 
 
-Teniendo la edad se puede extraer información útil respecto a su rendimiento, pudiendo conocer si la edad está relacionada en bajar sus estadísticas. También podremos tener en cuenta la posición a la hora de evaluarlas, pues no todas las posiciones tienen las mismas funciones en el partido.  
-
-Una vez tenemos todos los datos, nos quedaremos únicamente con los que necesarios. Tanto para los tiros de 2 y 3 puntos como para los tiros libres tenemos un par de variables: los aciertos y los intentos. Esta información la podemos reducir al porcentaje de aciertos de modo que se simplifique el dataset.  
+Una vez asignadas la posición y la edad a cada jugador, se pasa a realizar la reducción de variables. Analizando en conjunto de datos, podemos observar que en este se almacenan los volumenes de tiro de los jugadores, como por ejemplo, FG3 y FG3A que muestran el volumen de tiros de tres puntos anotados y lanzados. Es por esto que se ha decido reducir estas dos variables a una sola mediante el cálculo del porcentaje de tiro de tres puntos. Por lo tanto, esta reducción se realizará con respecto a los tiros de tres puntos, tiros de dos puntos y tiros libres:
 
 
 ```{r}
-
 playerstats["FG2%"] <- round((playerstats["FG"] - playerstats["FG3"]) / (playerstats["FGA"] - playerstats["FG3A"]), 2)
-
 playerstats["FG3%"] <- round(playerstats["FG3"] / playerstats["FG3A"], 2)
-
 playerstats["FT%"] <- round(playerstats["FT"] / playerstats["FTA"], 2)
-
 ```
 
-Ahora nos quedaremos con las nuevas variables y el resto de variables útiles.  
-
+Para finalizar con la construcción del conjunto de datos final, se pasa a reordenar las variables para que estas mantengan el orden visual en el conjunto de datos:
 ```{r}
+playerstats <- playerstats[,c(1:5,20,22:24,12:19,21)]
+```
 
-playerstats <- playerstats[,c(1:5,22:24,12:21)]
+Para finalizar con este apartado, se muestra el resumen del conjunto de datos y la cabecera de este:
+```{r}
+# Resumen del conjunto de datos
+summary(playerstats)
 
+# Cabecera del conjunto de datos
+head(playerstats)
 ```
 
 # Limpieza de los datos
+
 ## Ceros y elementos vacíos
-```{r}
 
+Se pasa a continuación a realizar la comprobación de valores nulos y vacíos dentro del conjunto de datos. En primer lugar, se comprueba la existencia de valores NaN dentro del conjunto de datos: 
+```{r}
 colSums(is.na(playerstats))
-
 ```
-
-Vemos que para las variables de porcentajes de tiros existen algunos registros con valores NaN.
+Como podemos observar, en las variables creadas anteriormente que reflejan los porcentajes de tiro, estas contienen valores NaN producto de los cálculos realizados anteriormente. Para su corrección, se va a asignar a estos valores el valor de 0.00 debido a que es al que hacen referencia:
 
 ```{r}
-
-colSums(playerstats==""|playerstats==" ")
-
-```
-
-En cambio, no existen valores vacíos.
-
-Para tratar los NaN, no podemos eliminar los registros. Es por esto que el tratamiento que se le dará será colocar un 0.  
-
-```{r}
-
 playerstats$`FG2%`[is.na(playerstats$`FG2%`)] <- 0.00
-
 playerstats$`FG3%`[is.na(playerstats$`FG3%`)] <- 0.00
-
 playerstats$`FT%`[is.na(playerstats$`FT%`)] <- 0.00
-
-
 # Comprobación de que ya no hay valores NaN 
 colSums(is.na(playerstats))
-
+```
+Como se puede observar, estos valores han sido eliminado del conjunto de datos. Por último, se pasa a realizar la comprobación de valores vacíos dentro de las variables:
+```{r}
+colSums(playerstats==""|playerstats==" ")
 ```
 
+Con respecto a los valores vacíos, se puede observar que no existen. Por lo tanto, no es necesario realizar ninguna acción para su corrección.  
+
+
+
 ## Identificación y gestión de valores extremos
-Para los outliers, 
 
+Se pasa a continuación a realizar la detección de outliers dentro del conjunto de datos. Para ello, únicamente se va a realizar esta detección sobre las variables que representan los minutos jugados (MP) y los partidos (G). El motivo de detectar únicamente en estas dos variables si existen outliers se debe a que por un lado podremos analizar si existen jugadores que han jugados pocos minutos o partidos en la liga con respecto al resto de jugadores, y en caso de existir, podremos eliminarlos para que no afecten a los análisis que se realizaran posteriormente. Dicho esto, se pasa a visualizar los diagramas de cajas de las variables anteriormente mencionadas:
 ```{r}
-
 # Diagramas de caja
 par(mfrow = c(1, 2))
 box_MP <- boxplot(playerstats$MP,main="MP outliers")
 box_G <- boxplot(playerstats$G,main="G outliers")
+```
 
-# Valores más bajos dentro de la caja, a partir de donde hay outliers inferiores
+Como se puede observar, en ambos diagramas no existen outliers. Sin embargo, estos diagramas son útiles ya que a traves del primer percentil se puede realizar el filtro de los jugadores que han jugado pocos minutos o partidos. Por lo tanto, a partir de este se pasa a realizar la eliminación de los jugadores que en la variables MP y G, se encuentran por debajo de este percentil:
+
+```{r}
+# Percential 25 de ambas variables
 box_MP$stats[2]
 box_G$stats[2]
-
-# Eliminación de registros considerados como outliers
+# Eliminación de registros por debajo de este percentil
 playerstats <- playerstats[playerstats$MP > box_MP$stats[2],]
 playerstats <- playerstats[playerstats$G > box_G$stats[2],]
+```
 
+Una vez hecho esto, el conjunto de datos obtenido y con el que se va a pasar a realizar los análisis contiene la siguiente información:
+```{r}
+# Resumen del conjunto de datos
+summary(playerstats)
+
+# Cabecera del conjunto de datos
+head(playerstats)
 ```
 
 # Análisis de los datos
+
 ## Selección de los grupos de datos que se quieren analizar/comparar
 
 ## Comprobación de la normalidad y homogeneidad de la varianza
+
+### Comprobación de la normalidad
+
+Para realizar la comprobación de la normalidad, se va a realizar el estudio sobre las variables numéricas que se utilizarán posteriormente en los modelos. Es decir, la variables sobre las cuales se procede a estudiar la varianza son *FG2%*, *FG3%*, *FT%*, *ORB*, *DRB*, *AST*, *STL*, *BLK*, *TOV*, *PF*, *PTS*, *PER*:
 ```{r}
-
-pearson.test(playerstats$PER)
-lillie.test(playerstats$PER)
-cvm.test(playerstats$PER)
-ad.test(playerstats$PER)
-
-plot(density(playerstats$PER), lwd=3, col='blue',
-     xlim=c(0, 40), main='', las=1,
-     xlab='Peso (kg)', ylab='Densidad')
-
-qqnorm(playerstats$PER, main=bquote(~ n == .(playerstats$PER)))
-  qqline(playerstats$PER)  # Para agregar la linea de referencia
+par(mfrow=c(1,2))
+for(i in 6:ncol(playerstats)) {
+  qqnorm(playerstats[,i],main = paste("Normal Q-Q Plot for ",colnames(playerstats)[i]))
+  qqline(playerstats[,i],col="red")
+  
+  # hist(playerstats[,i], breaks = 20,
+  #main=paste("Histogram for ", colnames(playerstats)[i]),
+  #xlab=colnames(playerstats)[i], freq = FALSE)
+  
+  x <-playerstats[,i]
+  plot(density(x), main=bquote(~ n == .(playerstats[,i])),
+       ylab='Densidad', col='blue3', xlab='x', las=1, lwd=4)
+  
+  print(paste("Tests de ", colnames(playerstats)[i]))
+  
+  print(shapiro.test(x)$p.value)
+  #print(pearson.test(x))
+  #print(lillie.test(playerstats[,i]))
+  #print(cvm.test(playerstats[,i]))
+  #print(ad.test(playerstats[,i]))
+  #print(pearson.test(playerstats[,i]))
+  #print(lillie.test(playerstats[,i]))
+}
 ```
 
+Como se puede observar, según los resultados de las visualizaciones quantile-quantile e histogramas, las variables son candidatas a la normalización. Sin embargo, el test de XXXXXXXXX nos indica que para todas las variables el p-valor es menor que el coeficiente 0.05 por lo que se puede rechazar la hipotesis nula y nos permite decir que las variables no son normalizables.
+
+Por lo tanto, no se va proceder a normalizar ninguna de la variables debido a los resultados obtenidos.
+
+### Homogeneidad de la varianza
+
+Para la homogeneidad de la varianza, se va a hacer uso del test de Fligner-Killeen para su estudio. En este estudio, se va a comparar todas las variables con la variable del PER ya que esta se extrae de las anteriores. Por lo tanto, suponiendo que la hipótesis nula consiste en que ambas varianzas son iguales se para a aplicar el test:
+```{r}
+for(i in 7:ncol(playerstats)-1) {
+print(paste('Test sobre la homogeneidad',colnames(playerstats)[i],' - PER'))
+flitest <- fligner.test(playerstats[,i] ~ PER, data = playerstats)
+print(flitest$p.value)
+}
+```
+
+Como se puede observar, en todas las variables son homogeneas con la variable PER ya que el p-valor es superiro a 0.05.
+
 ## Aplicación de pruebas estadísticas para comparar los grupos de datos
+
 ### Regresión lineal, qué variables influyen más?
+
 Debido a que el PER se calcula a partir de las variables de los volúmenes de tiro, se puede crear un modelo de predicción para predecir esta variable.
 
 ### Contraste de hipótesis
+
 Influye la edad en el rendimiento? Se ve reflejado en el PER?
 
 ### Contraste de hipótesis (?)
+
 Los jugadores de la posicion CENTER tienen un mejor PER?
 
 # Resolución del problema
-
