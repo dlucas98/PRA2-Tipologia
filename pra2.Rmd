@@ -17,6 +17,8 @@ knitr::opts_chunk$set(echo = TRUE)
 # PAQUETES
 if (!require('nortest')) install.packages('nortest'); library('nortest')
 if (!require('dplyr')) install.packages('dplyr'); library('dplyr')
+if (!require('pROC')) install.packages('pROC'); library('pROC')
+if (!require('ResourceSelection')) install.packages('ResourceSelection'); library('ResourceSelection')
 ```
 
 # Descripción del dataset  
@@ -69,9 +71,9 @@ Una vez asignadas la posición y la edad a cada jugador, se pasa a realizar la r
 
 
 ```{r}
-playerstats["FG2%"] <- round((playerstats["FG"] - playerstats["FG3"]) / (playerstats["FGA"] - playerstats["FG3A"]), 2)
-playerstats["FG3%"] <- round(playerstats["FG3"] / playerstats["FG3A"], 2)
-playerstats["FT%"] <- round(playerstats["FT"] / playerstats["FTA"], 2)
+playerstats["FG2p"] <- round((playerstats["FG"] - playerstats["FG3"]) / (playerstats["FGA"] - playerstats["FG3A"]), 2)
+playerstats["FG3p"] <- round(playerstats["FG3"] / playerstats["FG3A"], 2)
+playerstats["FTp"] <- round(playerstats["FT"] / playerstats["FTA"], 2)
 ```
 
 Para finalizar con la construcción del conjunto de datos final, se pasa a reordenar las variables para que estas mantengan el orden visual en el conjunto de datos:
@@ -99,9 +101,9 @@ colSums(is.na(playerstats))
 Como podemos observar, en las variables creadas anteriormente que reflejan los porcentajes de tiro, estas contienen valores NaN producto de los cálculos realizados anteriormente. Para su corrección, se va a asignar a estos valores el valor de 0.00 debido a que es al que hacen referencia:
 
 ```{r}
-playerstats$`FG2%`[is.na(playerstats$`FG2%`)] <- 0.00
-playerstats$`FG3%`[is.na(playerstats$`FG3%`)] <- 0.00
-playerstats$`FT%`[is.na(playerstats$`FT%`)] <- 0.00
+playerstats$`FG2p`[is.na(playerstats$`FG2p`)] <- 0.00
+playerstats$`FG3p`[is.na(playerstats$`FG3p`)] <- 0.00
+playerstats$`FTp`[is.na(playerstats$`FTp`)] <- 0.00
 # Comprobación de que ya no hay valores NaN 
 colSums(is.na(playerstats))
 ```
@@ -152,16 +154,12 @@ head(playerstats)
 
 ### Comprobación de la normalidad
 
-Para realizar la comprobación de la normalidad, se va a realizar el estudio sobre las variables numéricas que se utilizarán posteriormente en los modelos. Es decir, la variables sobre las cuales se procede a estudiar la varianza son *FG2%*, *FG3%*, *FT%*, *ORB*, *DRB*, *AST*, *STL*, *BLK*, *TOV*, *PF*, *PTS*, *PER*:
+Para realizar la comprobación de la normalidad, se va a realizar el estudio sobre las variables numéricas que se utilizarán posteriormente en los modelos. Es decir, la variables sobre las cuales se procede a estudiar la varianza son *FG2p*, *FG3p*, *FTp*, *ORB*, *DRB*, *AST*, *STL*, *BLK*, *TOV*, *PF*, *PTS*, *PER*:
 ```{r}
 par(mfrow=c(1,2))
 for(i in 6:ncol(playerstats)) {
   qqnorm(playerstats[,i],main = paste("Normal Q-Q Plot for ",colnames(playerstats)[i]))
   qqline(playerstats[,i],col="red")
-  
-  # hist(playerstats[,i], breaks = 20,
-  #main=paste("Histogram for ", colnames(playerstats)[i]),
-  #xlab=colnames(playerstats)[i], freq = FALSE)
   
   x <-playerstats[,i]
   plot(density(x), main=bquote(~ n == .(playerstats[,i])),
@@ -170,16 +168,11 @@ for(i in 6:ncol(playerstats)) {
   print(paste("Tests de ", colnames(playerstats)[i]))
   
   print(shapiro.test(x)$p.value)
-  #print(pearson.test(x))
-  #print(lillie.test(playerstats[,i]))
-  #print(cvm.test(playerstats[,i]))
-  #print(ad.test(playerstats[,i]))
-  #print(pearson.test(playerstats[,i]))
-  #print(lillie.test(playerstats[,i]))
+  
 }
 ```
 
-Como se puede observar, según los resultados de las visualizaciones quantile-quantile e histogramas, las variables son candidatas a la normalización. Sin embargo, el test de XXXXXXXXX nos indica que para todas las variables el p-valor es menor que el coeficiente 0.05 por lo que se puede rechazar la hipotesis nula y nos permite decir que las variables no son normalizables.
+Como se puede observar, según los resultados de las visualizaciones quantile-quantile e histogramas, las variables son candidatas a la normalización. Sin embargo, el test de Shapiro nos indica que para todas las variables el p-valor es menor que el coeficiente 0.05 por lo que se puede rechazar la hipotesis nula y nos permite decir que las variables no son normalizables.
 
 Por lo tanto, no se va proceder a normalizar ninguna de la variables debido a los resultados obtenidos.
 
@@ -194,7 +187,7 @@ print(flitest$p.value)
 }
 ```
 
-Como se puede observar, en todas las variables son homogeneas con la variable PER ya que el p-valor es superiro a 0.05.
+Como se puede observar, en todas las variables son homogeneas con la variable PER ya que el p-valor es superior a 0.05.
 
 ## Aplicación de pruebas estadísticas para comparar los grupos de datos
 
@@ -202,12 +195,129 @@ Como se puede observar, en todas las variables son homogeneas con la variable PE
 
 Debido a que el PER se calcula a partir de las variables de los volúmenes de tiro, se puede crear un modelo de predicción para predecir esta variable.
 
+```{r}
+# TODO: Crear nuevo modelo añadiendo la Edad y ver si mejora
+
+regresion_l <- lm(PER ~ FG2p+FG3p+FTp+ORB+DRB+AST+STL+BLK+TOV, data = playerstats)
+summary(regresion_l)
+
+```
+
+$$
+  y = 75.3056 - 1.0652x_1 - 5.1002x_2 - 1.1120x_3 + 0.2314x_4 - 3.7888x_5
+$$
+
+```{r}
+
+par(mfrow = c(1, 2))
+plot(regresion_l,which = 1)
+plot(regresion_l,which = 2)
+
+```
+
+
+
+```{r}
+
+pred_1 <- data.frame(NO2=40,vv=2,RS=100,HR=80,LL=0.10, TMP=25)
+#pred <- predict(regresion_l, pred_1, type ="response")
+#head(pred)
+
+```
+
+
+```{r}
+# Cogemos como datos los que se han utilizado para el modelo, ya que al crearlo se ignoran los NAs y por ello se eliminan datos.
+modeldata <- model.frame(regresion_l)
+
+# Las etiquetas se traducen en valores de 1 y 2, pero necesitamos que sean 0 y 1, por lo que se resta 1.
+modeldata <- (as.numeric(modeldata$PER)-1)
+
+```
+
+```{r}
+
+hoslem.test(modeldata, regresion_l$fitted.values)
+
+```
+
+Hemos obtenido el valor de X-squared, así como los grados de libertad y el p-value. De esta información, nos centraremos en el p-value para sacar conclusiones.  
+
+Del p-value podemos ver si se rechaza la hipotesis nula, que se toma como que no hay diferencias entre los valores observados y los pronosticados. En caso de que se rechazase, significaría que **el modelo no está bien ajustado**. Como en este caso hemos obtenido un 0.02856 y es menor que 0.05 (valor típico de alpha que servirá para tomar como referencia a la hora de aceptar o rechazar la hipótesis nula), concluimos que el modelo no se ajusta correctamente. Esto se interpreta así porque una probabilidad inferior al 5% no nos da la suficiente confianza para aceptar la hipotesis nula.
+
+Esta curva es un gráfico de la sensivilidad frente a 1 menos la especificidad. Se puede calcular mediante la función *roc()* del paquete *pROC* [10].  
+
+Para calcularlo, realizaremos las predicciones sobre todos los datos del dataset que se ha utilizado para crear el modelo y finalmente se comparará con los resultados reales, para poder ver las diferencias.
+
+
+
+
+### Regresión logística
+
+```{r}
+
+playerstats$tamanyo<-"Small"
+
+playerstats$tamanyo[playerstats$Pos=="C" | playerstats$Pos=="PF" | playerstats$Pos=="SF"] <- "Big"
+
+playerstats$tamanyo <- as.factor(playerstats$tamanyo)
+
+```
+
+```{r}
+
+regresion_log <- glm(formula=tamanyo~FG2p+FG3p+FTp+ORB+DRB+AST+STL+BLK+TOV, data = playerstats, family=binomial(link=logit))
+summary(regresion_log)
+
+```
+
 ### Contraste de hipótesis
 
 Influye la edad en el rendimiento? Se ve reflejado en el PER?
 
+Los jugadores mayores de 30 tienen una media de PER menor?
+
 ### Contraste de hipótesis (?)
 
-Los jugadores de la posicion CENTER tienen un mejor PER?
+Los jugadores de la posicion CENTER tienen un mejor PER? 
+
+$$
+  \begin{array}{ll}
+    H_{0}: &  PER_{center}<PER_{others}\\
+    H_{1}: &  PER_{center}>PER_{others}\
+  \end{array}
+$$
+
+
+
+```{r}
+# REFERENCIA: https://rpubs.com/Joaquin_AR/218467
+
+t.test(
+  x           = playerstats$PER[playerstats$Pos=='C'],
+  y           = playerstats$PER[playerstats$Pos!='C'],
+  alternative = "greater",
+  var.equal   = TRUE,
+  conf.level  = 0.95
+)
+
+```
+
+Tras realizar el test, podemos ver que el pvalue es muy próximo a 0, por lo tanto es menor que alpha y podríamos rechazar la hipótesis nula que dice que el PER de los jugadores de la posición de pivot tienen un PER menor.
+
+```{r}
+
+mean_center <- mean(playerstats$PER[playerstats$Pos=='C'])
+mean_noCenter <- mean(playerstats$PER[playerstats$Pos!='C'])
+
+par(mfrow=c(1,2))
+hist(playerstats$PER[playerstats$Pos=='C'], main="PER Center", xlab = NULL, col = "lightblue")
+hist(playerstats$PER[playerstats$Pos!='C'], main="PER other", xlab = NULL, col = "lightgreen")
+
+# TODO: Mirar una representación mejor
+
+
+```
+
 
 # Resolución del problema
