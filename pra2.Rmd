@@ -154,10 +154,11 @@ head(playerstats)
 
 ### Comprobación de la normalidad
 
-Para realizar la comprobación de la normalidad, se va a realizar el estudio sobre las variables numéricas que se utilizarán posteriormente en los modelos. Es decir, la variables sobre las cuales se procede a estudiar la varianza son *FG2p*, *FG3p*, *FTp*, *ORB*, *DRB*, *AST*, *STL*, *BLK*, *TOV*, *PF*, *PTS*, *PER*:
+Para realizar la comprobación de la normalidad, se va a realizar el estudio sobre las variables numéricas que se utilizarán posteriormente en los modelos. Es decir, la variables sobre las cuales se procede a estudiar la normalidad y la homogeneidad de la varianza son *FG2p*, *FG3p*, *FTp*, *ORB*, *DRB*, *AST*, *STL*, *BLK*, *TOV*, *PF*, *PTS*, *PER*:  
+
 ```{r}
 par(mfrow=c(1,2))
-for(i in 6:ncol(playerstats)) {
+for(i in 7:ncol(playerstats)) {
   qqnorm(playerstats[,i],main = paste("Normal Q-Q Plot for ",colnames(playerstats)[i]))
   qqline(playerstats[,i],col="red")
   
@@ -170,17 +171,24 @@ for(i in 6:ncol(playerstats)) {
   print(shapiro.test(x)$p.value)
   
 }
+
 ```
 
-Como se puede observar, según los resultados de las visualizaciones quantile-quantile e histogramas, las variables son candidatas a la normalización. Sin embargo, el test de Shapiro nos indica que para todas las variables el p-valor es menor que el coeficiente 0.05 por lo que se puede rechazar la hipotesis nula y nos permite decir que las variables no son normalizables.
+Como se puede observar, tenemos variables que, mediante los gráficos Q-Q y de densidad, podemos concluir que siguen una distribución bastante normal. Estas variables serían FG2p, FTp, PF y PER. El resto, se alejan un poco de la simetría que se buscaría en este tipo de distribuciones aunque tampoco se podría descartar al 100% la normalidad.
 
-Por lo tanto, no se va proceder a normalizar ninguna de la variables debido a los resultados obtenidos.
+Para confirmar esto, se podrían realizar tests de normalidad como el de Shapiro, pero al tener una cantidad de muestras muy grande (superior a 30), no nos podemos fiar demasiado de estos resultados.
+
+Se aprecia que según estos tests ningúna variable sigue una distribución normal, ya que nos indica en todas que el p-value es menor que el coeficiente 0.05 y nos indicaría que se puede rechazar la hipótesis nula, lo que en resumen significaría que no siguen una distribución normal. 
+
+Sin embargo, teniendo en cuenta que tenemos 437 muestras, se puede aplicar el Teorema del Límite Central, que establece que el contraste de hipótesis sobre la media de una muestra se aproxima a una distribución normal aunque la población original no siga una distribución normal, siempre que el tamaño de la muestra sea suficientemente grande.
+
 
 ### Homogeneidad de la varianza
 
-Para la homogeneidad de la varianza, se va a hacer uso del test de Fligner-Killeen para su estudio. En este estudio, se va a comparar todas las variables con la variable del PER ya que esta se extrae de las anteriores. Por lo tanto, suponiendo que la hipótesis nula consiste en que ambas varianzas son iguales se para a aplicar el test:
+Para la homogeneidad de la varianza, se va a hacer uso del test de Fligner-Killeen para su estudio. En este estudio, se va a comparar todas las variables con la variable del PER ya que esta se extrae de las anteriores. Por lo tanto, suponiendo que la hipótesis nula consiste en que ambas varianzas son iguales se para a aplicar el test:  
+
 ```{r}
-for(i in 7:ncol(playerstats)-1) {
+for(i in 7:(ncol(playerstats)-1)) {
 print(paste('Test sobre la homogeneidad',colnames(playerstats)[i],' - PER'))
 flitest <- fligner.test(playerstats[,i] ~ PER, data = playerstats)
 print(flitest$p.value)
@@ -196,7 +204,6 @@ Como se puede observar, en todas las variables son homogeneas con la variable PE
 Debido a que el PER se calcula a partir de las variables de los volúmenes de tiro, se puede crear un modelo de predicción para predecir esta variable.
 
 ```{r}
-# TODO: Crear nuevo modelo añadiendo la Edad y ver si mejora
 
 regresion_l <- lm(PER ~ FG2p+FG3p+FTp+ORB+DRB+AST+STL+BLK+TOV, data = playerstats)
 summary(regresion_l)
@@ -204,7 +211,7 @@ summary(regresion_l)
 ```
 
 $$
-  y = 75.3056 - 1.0652x_1 - 5.1002x_2 - 1.1120x_3 + 0.2314x_4 - 3.7888x_5
+  y = -6.9301 + 22.4763x_1 + 2.7066x_2 + 10.0536x_3 + 0.0312x_4 - 0.0009x_5 + 0.0175x_6 - 0.0554x_7 + 0.0280x_8 + 0.0262x_9
 $$
 
 ```{r}
@@ -250,7 +257,52 @@ Esta curva es un gráfico de la sensivilidad frente a 1 menos la especificidad. 
 Para calcularlo, realizaremos las predicciones sobre todos los datos del dataset que se ha utilizado para crear el modelo y finalmente se comparará con los resultados reales, para poder ver las diferencias.
 
 
+Ahora probamos a introducir la variable Age para ver si el modelo mejora.
 
+```{r}
+
+regresion_l <- lm(PER ~ FG2p+FG3p+FTp+ORB+DRB+AST+STL+BLK+TOV+Age, data = playerstats)
+summary(regresion_l)
+
+```
+
+$$
+  y = -6.9301 + 22.4763x_1 + 2.7066x_2 + 10.0536x_3 + 0.0312x_4 - 0.0009x_5 + 0.0175x_6 - 0.0554x_7 + 0.0280x_8 + 0.0262x_9
+$$
+
+```{r}
+
+par(mfrow = c(1, 2))
+plot(regresion_l,which = 1)
+plot(regresion_l,which = 2)
+
+```
+
+
+
+```{r}
+
+pred_1 <- data.frame(NO2=40,vv=2,RS=100,HR=80,LL=0.10, TMP=25)
+#pred <- predict(regresion_l, pred_1, type ="response")
+#head(pred)
+
+```
+
+
+```{r}
+# Cogemos como datos los que se han utilizado para el modelo, ya que al crearlo se ignoran los NAs y por ello se eliminan datos.
+modeldata <- model.frame(regresion_l)
+
+# Las etiquetas se traducen en valores de 1 y 2, pero necesitamos que sean 0 y 1, por lo que se resta 1.
+modeldata <- (as.numeric(modeldata$PER)-1)
+
+```
+
+```{r}
+
+hoslem.test(modeldata, regresion_l$fitted.values)
+
+```
 
 ### Regresión logística
 
@@ -270,6 +322,49 @@ regresion_log <- glm(formula=tamanyo~FG2p+FG3p+FTp+ORB+DRB+AST+STL+BLK+TOV, data
 summary(regresion_log)
 
 ```
+
+
+```{r}
+
+regresion_log <- glm(formula=tamanyo~FG2p+FG3p+FTp+ORB+DRB+AST+STL+BLK+TOV+Age, data = playerstats, family=binomial(link=logit))
+summary(regresion_log)
+
+```
+
+### Estudio de correlaciones lineales
+
+
+```{r}
+
+var_mat <- data.frame(playerstats[7:18])
+
+cor_mat <- cor(var_mat, use = "complete.obs")
+cor_mat
+
+```
+Ejemplo de explicación:
+
+En esta estación, también veremos las mayores y menores correlaciones con el resto de variables para cada contaminante.
+
+- *PM10*:
+Con las variables meteorológicas, este contaminante tiene mayor correlación con vv, siendo un -0.2420, y la menor correlación con HR, que únicamente es de -0.0262.
+
+Con los demás contaminantes, la mayor correlación es con NO2, ya que el coeficiente es de 0.4358. En cambio, la menor correlación es con O3, con tan solo un -0.1449.
+
+- *SO2*:
+Con las variables meteorológicas, este contaminante tiene mayor correlación con vv, con un -0.2122, y la menor correlación con PRB, con sólo un 0.0084.
+
+Con los otros contaminantes, la mayor correlación es con PM10, con un 0.4328, y la menor con O3, con un -0.2062.
+
+- *NO2*:
+Este contaminante tiene la mayor correlación con la variable RS, con un -0.3834, y la menor correlación con la variable LL, con un -0.0951. 
+
+Respecto a los demás contaminantes, la mayor correlación la tiene con PM10, con un 0.4358, y la menor correlación con O3, con un -0.2708.
+
+- *O3*:
+El último contaminante tiene una máxima correlación con vv, con un 0.5441, y la menor con LL, con un 0.0259.
+
+Contra los demás contaminantes, la mayor correlación es con NO2, con un -0.2708, y la menor con PM10, con un -0.1449.
 
 ### Contraste de hipótesis
 
@@ -306,7 +401,7 @@ t.test(
 Tras realizar el test, podemos ver que el pvalue es muy próximo a 0, por lo tanto es menor que alpha y podríamos rechazar la hipótesis nula que dice que el PER de los jugadores de la posición de pivot tienen un PER menor.
 
 ```{r}
-
+08
 mean_center <- mean(playerstats$PER[playerstats$Pos=='C'])
 mean_noCenter <- mean(playerstats$PER[playerstats$Pos!='C'])
 
@@ -315,7 +410,6 @@ hist(playerstats$PER[playerstats$Pos=='C'], main="PER Center", xlab = NULL, col 
 hist(playerstats$PER[playerstats$Pos!='C'], main="PER other", xlab = NULL, col = "lightgreen")
 
 # TODO: Mirar una representación mejor
-
 
 ```
 
