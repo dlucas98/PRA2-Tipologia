@@ -11,14 +11,13 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-```
-
-```{r echo=FALSE}
 # PAQUETES
 if (!require('nortest')) install.packages('nortest'); library('nortest')
 if (!require('dplyr')) install.packages('dplyr'); library('dplyr')
 if (!require('pROC')) install.packages('pROC'); library('pROC')
 if (!require('ResourceSelection')) install.packages('ResourceSelection'); library('ResourceSelection')
+if (!require('caret')) install.packages('ResourceSelection'); library('caret')
+
 ```
 
 # Descripción del dataset  
@@ -37,7 +36,7 @@ Para comenzar con el tratamiento de los datos, se realiza la carga del dataset c
 
 ```{r}
 playerstats <- read.csv("NBAPlayerStatistics_20-21.csv", stringsAsFactors = FALSE)
-head(playerstats)
+head(playerstats,3)
 ```
 
 Una vez cargada la información, mostramos la cabecera de este. En los primero registros del conjunto de datos podemos observar que el jugador Aaron Gordon se encuentra dos veces debido a que el jugador fue traspasado de un equipo a otro durante el transcurso de la temporada. Ante esta situación, se ha decidido matener los dos registros ya que la información que refleja cada uno de estos se ve influida por el contexto del equipo en el que jugó el jugador.
@@ -85,9 +84,8 @@ Para finalizar con este apartado, se muestra el resumen del conjunto de datos y 
 ```{r}
 # Resumen del conjunto de datos
 summary(playerstats)
-
 # Cabecera del conjunto de datos
-head(playerstats)
+head(playerstats,3)
 ```
 
 # Limpieza de los datos
@@ -141,7 +139,6 @@ Una vez hecho esto, el conjunto de datos obtenido y con el que se va a pasar a r
 ```{r}
 # Resumen del conjunto de datos
 summary(playerstats)
-
 # Cabecera del conjunto de datos
 head(playerstats)
 ```
@@ -157,21 +154,23 @@ head(playerstats)
 Para realizar la comprobación de la normalidad, se va a realizar el estudio sobre las variables numéricas que se utilizarán posteriormente en los modelos. Es decir, la variables sobre las cuales se procede a estudiar la normalidad y la homogeneidad de la varianza son *FG2p*, *FG3p*, *FTp*, *ORB*, *DRB*, *AST*, *STL*, *BLK*, *TOV*, *PF*, *PTS*, *PER*:  
 
 ```{r}
-par(mfrow=c(1,2))
+par(mfrow=c(3,4))
 for(i in 7:ncol(playerstats)) {
-  qqnorm(playerstats[,i],main = paste("Normal Q-Q Plot for ",colnames(playerstats)[i]))
+  qqnorm(playerstats[,i],main = paste(colnames(playerstats)[i]))
   qqline(playerstats[,i],col="red")
   
   x <-playerstats[,i]
   plot(density(x), main=bquote(~ n == .(playerstats[,i])),
        ylab='Densidad', col='blue3', xlab='x', las=1, lwd=4)
   
-  print(paste("Tests de ", colnames(playerstats)[i]))
-  
-  print(shapiro.test(x)$p.value)
+
   
 }
 
+for(i in 7:ncol(playerstats)) {
+  print(paste("Tests de ", colnames(playerstats)[i]))
+  print(shapiro.test(x)$p.value)  
+}
 ```
 
 Como se puede observar, tenemos variables que, mediante los gráficos Q-Q y de densidad, podemos concluir que siguen una distribución bastante normal. Estas variables serían FG2p, FTp, PF y PER. El resto, se alejan un poco de la simetría que se buscaría en este tipo de distribuciones aunque tampoco se podría descartar al 100% la normalidad.
@@ -199,148 +198,99 @@ Como se puede observar, en todas las variables son homogeneas con la variable PE
 
 ## Aplicación de pruebas estadísticas para comparar los grupos de datos
 
-### Regresión lineal, qué variables influyen más?
+### Regresión lineal
 
-Debido a que el PER se calcula a partir de las variables de los volúmenes de tiro, se puede crear un modelo de predicción para predecir esta variable.
+Debido a que la variable de PER, se calcula a partir de la variables ORB, DRB, AST, STL, BLK, TOV y los volumenes de tiro. A continuación, se va a crear un modelo de regresión lineal el cual nos permita conocer que variables de las que tenemos en el conjunto de datos tienen una mayor importancia a la hora de realizar predicción del PER haciendo uso de este tipo de regresión. Es por esto que en primer lugar, se construye el modelo con las variables anteriormente comentadas y los porcentajes de efectivias en el tiro de los jugadores:
 
 ```{r}
-
 regresion_l <- lm(PER ~ FG2p+FG3p+FTp+ORB+DRB+AST+STL+BLK+TOV, data = playerstats)
 summary(regresion_l)
-
 ```
+
+Como se puede observar las variables que tienen una mayor relevancia a la hora de obtener el PER según el modelo creado son las variables FG2p, FTp, ORB, AST y STL. Adicionalmente, podemos observar que el modelo creado tiene un coeficiente de determinación de 0.56 lo que nos permite suponer que el modelo ajusta a más de la mitad de los datos. Para poder confirmar esta suposición se pasa a realizar la visualización del grafico de los residuos y QQ con el que podremos entender de forma visual como se ajusta el modelo a los datos:
+
+```{r}
+par(mfrow = c(1, 2))
+plot(regresion_l,which = 1)
+plot(regresion_l,which = 2)
+```
+
+Como se puede observar, la suposición anterior es cierta y el modelo representa más de la mitad de los datos de conjunto de datos. Adicionalmente, se va a crear un modelo que a las variables anteriormente utilizadas al que se le incluya la variable de Age que representa la edad del jugador con el fin del conocer si la edad de un jugador es tiene relevancia a la hora de que un jugador tenga un mayor PER o no:
+
+```{r}
+regresion_l_age <- lm(PER ~ FG2p+FG3p+FTp+ORB+DRB+AST+STL+BLK+TOV+Age, data = playerstats)
+summary(regresion_l_age)
+```
+
+Como se puede observar, la inclusión de la variable Age en el modelo no tiene una gran relevancia ya que este mejora muy levemente con un coeficiente de determinación de 0.56. Por lo tanto, para la siguiente parte del análisis, se va a hacer uso del primer modelo creado ya que no se aprecia casi mejoría. Por lo tanto, la recta de regresión del primer modelo creado es la siguiente:
 
 $$
   y = -6.9301 + 22.4763x_1 + 2.7066x_2 + 10.0536x_3 + 0.0312x_4 - 0.0009x_5 + 0.0175x_6 - 0.0554x_7 + 0.0280x_8 + 0.0262x_9
 $$
 
-```{r}
-
-par(mfrow = c(1, 2))
-plot(regresion_l,which = 1)
-plot(regresion_l,which = 2)
-
-```
-
-
+Para finalizar, se va a proceder a realizar una predicción haciendo uso del primer modelo. Para ello, se va a selecciónar el primero y el séptimo de los registros y se va a comprobar si el PER del conjunto de datos es similar al PER calculado por el modelo:
 
 ```{r}
+seleccion_1 <- playerstats[1,]
+pred <- predict(regresion_l, seleccion_1[7:15], type ="response")
+print(paste('PER al calculado del jugador 1:',round(head(pred),2)))
+print(paste('PER original del jugador 1:',seleccion_1[1,18]))
 
-pred_1 <- data.frame(NO2=40,vv=2,RS=100,HR=80,LL=0.10, TMP=25)
-#pred <- predict(regresion_l, pred_1, type ="response")
-#head(pred)
 
+seleccion_2 <- playerstats[7,]
+pred <- predict(regresion_l, seleccion_2[7:15], type ="response")
+print(paste('PER calculado del jugador 2:',round(head(pred),2)))
+print(paste('PER original del jugador 2:',seleccion_2[1,18]))
 ```
 
-
-```{r}
-# Cogemos como datos los que se han utilizado para el modelo, ya que al crearlo se ignoran los NAs y por ello se eliminan datos.
-modeldata <- model.frame(regresion_l)
-
-# Las etiquetas se traducen en valores de 1 y 2, pero necesitamos que sean 0 y 1, por lo que se resta 1.
-modeldata <- (as.numeric(modeldata$PER)-1)
-
-```
-
-```{r}
-
-hoslem.test(modeldata, regresion_l$fitted.values)
-
-```
-
-Hemos obtenido el valor de X-squared, así como los grados de libertad y el p-value. De esta información, nos centraremos en el p-value para sacar conclusiones.  
-
-Del p-value podemos ver si se rechaza la hipotesis nula, que se toma como que no hay diferencias entre los valores observados y los pronosticados. En caso de que se rechazase, significaría que **el modelo no está bien ajustado**. Como en este caso hemos obtenido un 0.02856 y es menor que 0.05 (valor típico de alpha que servirá para tomar como referencia a la hora de aceptar o rechazar la hipótesis nula), concluimos que el modelo no se ajusta correctamente. Esto se interpreta así porque una probabilidad inferior al 5% no nos da la suficiente confianza para aceptar la hipotesis nula.
-
-Esta curva es un gráfico de la sensivilidad frente a 1 menos la especificidad. Se puede calcular mediante la función *roc()* del paquete *pROC* [10].  
-
-Para calcularlo, realizaremos las predicciones sobre todos los datos del dataset que se ha utilizado para crear el modelo y finalmente se comparará con los resultados reales, para poder ver las diferencias.
-
-
-Ahora probamos a introducir la variable Age para ver si el modelo mejora.
-
-```{r}
-
-regresion_l <- lm(PER ~ FG2p+FG3p+FTp+ORB+DRB+AST+STL+BLK+TOV+Age, data = playerstats)
-summary(regresion_l)
-
-```
-
-$$
-  y = -6.9301 + 22.4763x_1 + 2.7066x_2 + 10.0536x_3 + 0.0312x_4 - 0.0009x_5 + 0.0175x_6 - 0.0554x_7 + 0.0280x_8 + 0.0262x_9
-$$
-
-```{r}
-
-par(mfrow = c(1, 2))
-plot(regresion_l,which = 1)
-plot(regresion_l,which = 2)
-
-```
-
-
-
-```{r}
-
-pred_1 <- data.frame(NO2=40,vv=2,RS=100,HR=80,LL=0.10, TMP=25)
-#pred <- predict(regresion_l, pred_1, type ="response")
-#head(pred)
-
-```
-
-
-```{r}
-# Cogemos como datos los que se han utilizado para el modelo, ya que al crearlo se ignoran los NAs y por ello se eliminan datos.
-modeldata <- model.frame(regresion_l)
-
-# Las etiquetas se traducen en valores de 1 y 2, pero necesitamos que sean 0 y 1, por lo que se resta 1.
-modeldata <- (as.numeric(modeldata$PER)-1)
-
-```
-
-```{r}
-
-hoslem.test(modeldata, regresion_l$fitted.values)
-
-```
+Como podemos observar, para el primer jugador, se obtiene un PER casi idéntico pero para el segundo esta diferencia se amplía a 2.5. Por lo tanto, y como se había visualizado, el modelo no se ajusta a todos los datos del conjunto de datos.
 
 ### Regresión logística
 
+Como segundo análisis, sobre el conjunto de datos, se ha decidido realizar un modelo de regresión logística el cual nos permita conocer que según sus estadísticas el jugador en cuestión es pequeño (Guard - G, Point Guard - PG, Small Guard - SG o Small Forward - SF) o grande (Paint Forward- PF o Center - C). Para ello, en primer lugar, se va a realizar la creación de una nueva variable llamada *tamanyo* la cual identifique si un jugador por su posición es pequeño o grande:
 ```{r}
-
 playerstats$tamanyo<-"Small"
-
-playerstats$tamanyo[playerstats$Pos=="C" | playerstats$Pos=="PF" | playerstats$Pos=="SF"] <- "Big"
-
+playerstats$tamanyo[playerstats$Pos=="C" | playerstats$Pos=="PF"] <- "Big"
 playerstats$tamanyo <- as.factor(playerstats$tamanyo)
-
 ```
 
-```{r}
+Una vez creada esta nueva variable y factorizada, se pasa a crear el modelo de regresión logística el cual nos permita conocer si un jugador es pequeño o grande según sus estadísticas:
 
+```{r}
 regresion_log <- glm(formula=tamanyo~FG2p+FG3p+FTp+ORB+DRB+AST+STL+BLK+TOV, data = playerstats, family=binomial(link=logit))
 summary(regresion_log)
-
 ```
 
+Tras la creación del modelo, se va a pasar a predecir, con este, el tamaño de los jugadores según sus estadísticas. Para ello, se hará uso de la matriz de confusión para la obtención de resultados:
 
 ```{r}
 
-regresion_log <- glm(formula=tamanyo~FG2p+FG3p+FTp+ORB+DRB+AST+STL+BLK+TOV+Age, data = playerstats, family=binomial(link=logit))
-summary(regresion_log)
+playerstats$PROB_PRED <- round(predict(regresion_log, newdata = playerstats, "response"),4)
 
+playerstats$TAM_PRED <- ifelse(playerstats$PROB_PRED > 0.5, "Small", "Big")
+
+y_pred <- as.factor(playerstats$TAM_PRED)
+y_obs <- as.factor(playerstats$tamanyo)
+
+confusionMatrix(data=y_pred, reference = y_obs,  positive="Small")
 ```
+Como se puede observar, el modelo ha tenido una precisión del 83% aproximadamente y ha clasificado correctamente 138 jugadores como hombres grandes y 225 como pequeños según su posición. Para finalizar, se muestra la distribución de los casos clasificados correctamente e incorrectamente por el modelo creado:
+```{r}
+Tabla <-  table(y_obs, y_pred)
+barplot(Tabla, main="Matriz de confusión",
+  xlab="Tamaño real", col=c("darkblue","red"),
+  legend.text=c("Pred Big","Pred Small")
+)
+```
+
 
 ### Estudio de correlaciones lineales
 
 
 ```{r}
-
 var_mat <- data.frame(playerstats[7:18])
-
 cor_mat <- cor(var_mat, use = "complete.obs")
 cor_mat
-
 ```
 Ejemplo de explicación:
 
@@ -368,26 +318,19 @@ Contra los demás contaminantes, la mayor correlación es con NO2, con un -0.270
 
 ### Contraste de hipótesis
 
-Influye la edad en el rendimiento? Se ve reflejado en el PER?
-
-Los jugadores mayores de 30 tienen una media de PER menor?
-
-### Contraste de hipótesis (?)
-
-Los jugadores de la posicion CENTER tienen un mejor PER? 
+Como último análisis sobre el conjunto de datos, se pasa a realizar un constraste de hipótesis en el que se intentará dar una respuesta sobre el conjunto de datos a la afirmación de que los jugadores que juegan en la posición de Center obtenienen un mayor ratio de eficiencia(PER) que el resto de jugadores que juegan en el resot de posiciónes. Por lo tanto, para este análisis plantearemos que la hipótesis nula es que los jugadores del resto de las posiciones tienen un mayor o igual PER que los centers y como hipótesis alternativa la contraria:
 
 $$
   \begin{array}{ll}
-    H_{0}: &  PER_{center}<PER_{others}\\
+    H_{0}: &  PER_{center}=<PER_{others}\\
     H_{1}: &  PER_{center}>PER_{others}\
   \end{array}
 $$
 
-
+Por lo tanto, una vez planteada las hipótesis se pasa a realizar el contraste mediante la función *t.test*:
 
 ```{r}
 # REFERENCIA: https://rpubs.com/Joaquin_AR/218467
-
 t.test(
   x           = playerstats$PER[playerstats$Pos=='C'],
   y           = playerstats$PER[playerstats$Pos!='C'],
@@ -395,23 +338,31 @@ t.test(
   var.equal   = TRUE,
   conf.level  = 0.95
 )
-
 ```
 
-Tras realizar el test, podemos ver que el pvalue es muy próximo a 0, por lo tanto es menor que alpha y podríamos rechazar la hipótesis nula que dice que el PER de los jugadores de la posición de pivot tienen un PER menor.
+Tras realizar el test, podemos ver que el pvalue es muy próximo a 0, por lo tanto es menor que alpha y podríamos rechazar la hipótesis nula que dice que el PER de los jugadores de la posición de center tienen un PER menor. Si visualizamos la distribución de ambos conjuntos de datos podremos observar que los jugadores en la posición de center tienen un mayor PER que el resto de jugadores:
 
 ```{r}
-08
 mean_center <- mean(playerstats$PER[playerstats$Pos=='C'])
 mean_noCenter <- mean(playerstats$PER[playerstats$Pos!='C'])
-
 par(mfrow=c(1,2))
 hist(playerstats$PER[playerstats$Pos=='C'], main="PER Center", xlab = NULL, col = "lightblue")
 hist(playerstats$PER[playerstats$Pos!='C'], main="PER other", xlab = NULL, col = "lightgreen")
-
-# TODO: Mirar una representación mejor
-
 ```
 
 
 # Resolución del problema
+
+Tras la realización de los análisis empleados en el apartado anterior, se ha podido conocer que el para el cálculo de la variable PER en un modelo de regresión lineal la varaibles que tienen una mayor importancia son FG2p, FTp, ORB, AST y STL. Sin embargo, se ha demostrado que este modelo no se ajusta a la totalidad de los datos ya que solo se ajusta a un 56%. Adicionalmente, se ha comprobadoque la inclusión de la variable Age en el modelo no mejora la precisión de este demostrando que la edad no importa a la hora de obtener un mejor o peor PER.
+
+Con respecto al modelo de regresión logística, se ha comprobado que se puede conocer el tamaño de los jugadores a partir de sus estadísticas con un 83% de precisión. Esto nos ha permitido afirmar que los jugadores tendrán una estadísticas y otras según su tamaño y que, apartir de estas, se puede conocer si son jugadores grandes o pequeños.
+
+Por último, mediante el constraste de hipótesis, se ha visto que por normal general los jugadores que juegan en la posición de Cente obtienen un mayor PER que el resto de posiciones, y por lo tanto, se ha confirmado la suposición del mundo del baloncesto en la que los jugadores de esta posición tienen un mayor PER.
+
+# Firma de apartados
+
+| Contribuciones | Firma |
+|-------|-------------|
+| Invetigación previa | DLT y FJCZ |
+| Redacción de las respuestas | DLT y FJCZ |
+| Desarrollo código | DLT y FJCZ |
