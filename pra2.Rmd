@@ -198,6 +198,34 @@ Como se puede observar, en todas las variables son homogeneas con la variable PE
 
 ## Aplicación de pruebas estadísticas para comparar los grupos de datos
 
+
+### Estudio de correlaciones lineales
+
+El estudio de correlaciones pretende determinar si dos variables están relacionadas. El resultado del análisis es un coeficiente de correlación que tomará valores entre -1 y +1.  Si el signo es positivo, indica que si una variable aumenta, la otra también, ya que existe una relación positiva entre las dos variables. Si el signo es negativo indica que la relación es negativa y mientras los valores de una variable incrementan, los de la otra disminuyen. En cambio, Si las variables son independientes, el coeficiente de correlación será 0. La fuerza de la relación lineal incrementa a medida que el coeficiente de correlación se aproxima a -1 o a +1 y disminuye cuanto más se acerque al 0.
+
+- José Alquicira. (2017). Análisis de correlación. 2022, Junio 2, Conogasi.org Sitio web: https://conogasi.org/articulos/analisis-de-correlacion-2/
+
+Ninguna de las variables explicativas puede ser combinación lineal de las otras, ya que en este caso no tendríamos un modelo de k variables, sino de k-1 variables (queremos que las variables Xi sean independientes). 
+
+```{r}
+
+x <- playerstats[7:18]
+y <- playerstats[18]
+cor_mat <- cor(y, x, use = "complete.obs")
+cor_mat
+
+```
+
+Tras ejecutar la función *cor()*, podemos ver las correlaciones que existen entre la variable PER y las demás variables numéricas.  
+Primeramente vemos que la variable más independiente, es decir, donde el coeficiente de correlación es 0 o lo más próximo, es en el porcentaje de tiros de 3 puntos (FG3p), donde el resultado es -0.0147. Sin embargo, el resto de variables tienen relaciones positivas, lo que significa que si aumentan, hacen aumentar el PER, lo cual tiene sentido teniendo en cuenta lo que representan.  
+
+La variable que parece tener una mayor relación con el PER es la de los puntos anotados, que aunque no se utilicen para calcularlo, también acaban representando el rendimiento de un jugador.
+
+Otras variables que muestran una gran relación con el PER son las de TOV, DRB y AST, que se mantienen por encima de 0.5 en positivo. Tiene sentido que estas variables tengan relaciones altas debido a que es más probable que cualquier jugador de cualquier posición pueda destacar por ello, mientras que las variables de anotar puntos o realizar faltas pierden importancia a la hora de describir el PER de todas las posiciones.
+
+Gracias a este análisis podríamos llegar a descartar la variable FG3p ya que parece tener poca importancia, pero se acabará de comprobar si este resultado también se refleja en los análisis predictivos que se realizarán a continuación.  
+
+
 ### Regresión lineal
 
 Debido a que la variable de PER, se calcula a partir de la variables ORB, DRB, AST, STL, BLK, TOV y los volumenes de tiro. A continuación, se va a crear un modelo de regresión lineal el cual nos permita conocer que variables de las que tenemos en el conjunto de datos tienen una mayor importancia a la hora de realizar predicción del PER haciendo uso de este tipo de regresión. Es por esto que en primer lugar, se construye el modelo con las variables anteriormente comentadas y los porcentajes de efectivias en el tiro de los jugadores:
@@ -243,7 +271,8 @@ print(paste('PER calculado del jugador 2:',round(head(pred),2)))
 print(paste('PER original del jugador 2:',seleccion_2[1,18]))
 ```
 
-Como podemos observar, para el primer jugador, se obtiene un PER casi idéntico pero para el segundo esta diferencia se amplía a 2.5. Por lo tanto, y como se había visualizado, el modelo no se ajusta a todos los datos del conjunto de datos.
+Como podemos observar, para el primer jugador, se obtiene un PER casi idéntico pero para el segundo esta diferencia se amplía a 2.5. Por lo tanto, y como se había visualizado, el modelo no se ajusta a todos los datos del conjunto de datos.  
+
 
 ### Regresión logística
 
@@ -284,37 +313,6 @@ barplot(Tabla, main="Matriz de confusión",
 ```
 
 
-### Estudio de correlaciones lineales
-
-
-```{r}
-var_mat <- data.frame(playerstats[7:18])
-cor_mat <- cor(var_mat, use = "complete.obs")
-cor_mat
-```
-Ejemplo de explicación:
-
-En esta estación, también veremos las mayores y menores correlaciones con el resto de variables para cada contaminante.
-
-- *PM10*:
-Con las variables meteorológicas, este contaminante tiene mayor correlación con vv, siendo un -0.2420, y la menor correlación con HR, que únicamente es de -0.0262.
-
-Con los demás contaminantes, la mayor correlación es con NO2, ya que el coeficiente es de 0.4358. En cambio, la menor correlación es con O3, con tan solo un -0.1449.
-
-- *SO2*:
-Con las variables meteorológicas, este contaminante tiene mayor correlación con vv, con un -0.2122, y la menor correlación con PRB, con sólo un 0.0084.
-
-Con los otros contaminantes, la mayor correlación es con PM10, con un 0.4328, y la menor con O3, con un -0.2062.
-
-- *NO2*:
-Este contaminante tiene la mayor correlación con la variable RS, con un -0.3834, y la menor correlación con la variable LL, con un -0.0951. 
-
-Respecto a los demás contaminantes, la mayor correlación la tiene con PM10, con un 0.4358, y la menor correlación con O3, con un -0.2708.
-
-- *O3*:
-El último contaminante tiene una máxima correlación con vv, con un 0.5441, y la menor con LL, con un 0.0259.
-
-Contra los demás contaminantes, la mayor correlación es con NO2, con un -0.2708, y la menor con PM10, con un -0.1449.
 
 ### Contraste de hipótesis
 
@@ -353,11 +351,13 @@ hist(playerstats$PER[playerstats$Pos!='C'], main="PER other", xlab = NULL, col =
 
 # Resolución del problema
 
-Tras la realización de los análisis empleados en el apartado anterior, se ha podido conocer que el para el cálculo de la variable PER en un modelo de regresión lineal la varaibles que tienen una mayor importancia son FG2p, FTp, ORB, AST y STL. Sin embargo, se ha demostrado que este modelo no se ajusta a la totalidad de los datos ya que solo se ajusta a un 56%. Adicionalmente, se ha comprobadoque la inclusión de la variable Age en el modelo no mejora la precisión de este demostrando que la edad no importa a la hora de obtener un mejor o peor PER.
+Para resolver el problema lo primero que se ha hecho es un estudio sobre la correlación de las variables con el PER, es decir, la variable que buscamos predecir. De este análisis hemos obtenido conclusiones positivas donde se confirma que todas las variables están bastante relacionadas con esta nota que se atribuye a los jugadores, algo que tiene lógica, pero hemos observado que los tiros de 3 puntos no eran demasiado necesarios. 
+
+Tras la realización de los análisis empleados en el apartado anterior, se ha podido demostrar que, para el cálculo de la variable PER en un modelo de regresión lineal, las variables que tienen una mayor importancia son FG2p, FTp, ORB, AST y STL, descartando también los tiros de 3 puntos. Sin embargo, se ha demostrado que este modelo no se ajusta a la totalidad de los datos ya que solo se ajusta a un 56%. Adicionalmente, se ha comprobado que la inclusión en el modelo de la variable Age, que describe la edad de los jugadores, no mejora la precisión de este, demostrando que la edad no importa a la hora de obtener un mejor o peor PER.
 
 Con respecto al modelo de regresión logística, se ha comprobado que se puede conocer el tamaño de los jugadores a partir de sus estadísticas con un 83% de precisión. Esto nos ha permitido afirmar que los jugadores tendrán una estadísticas y otras según su tamaño y que, apartir de estas, se puede conocer si son jugadores grandes o pequeños.
 
-Por último, mediante el constraste de hipótesis, se ha visto que por normal general los jugadores que juegan en la posición de Cente obtienen un mayor PER que el resto de posiciones, y por lo tanto, se ha confirmado la suposición del mundo del baloncesto en la que los jugadores de esta posición tienen un mayor PER.
+Por último, mediante el constraste de hipótesis, se ha visto que por normal general los jugadores que juegan en la posición de Center obtienen un mayor PER que el resto de posiciones, y por lo tanto, se ha confirmado la suposición del mundo del baloncesto en la que los jugadores de esta posición tienen un mayor PER.  
 
 # Firma de apartados
 
