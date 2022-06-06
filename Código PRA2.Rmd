@@ -369,11 +369,17 @@ Por último, mediante el constraste de hipótesis, se ha visto que por normal ge
 
 # Referencias
 
-[1] https://www.kaggle.com/datasets/umutalpaydn/nba-20202021-season-player-stats?resource=download
+[1] *Nba 2020-2021 Season Player Stats* [en línea] [consulta: 23 de mayo de 2022]. Disponible en: https://www.kaggle.com/datasets/umutalpaydn/nba-20202021-season-player-stats?resource=download
 
-[2] José Alquicira. (2017). Análisis de correlación. 2022, Junio 2, Conogasi.org Sitio web: https://conogasi.org/articulos/analisis-de-correlacion-2/
+[2] *Análisis de correlación. José Alquicira (2017)* [en línea] [consulta: 30 de mayo de 2022]. Disponible en: https://conogasi.org/articulos/analisis-de-correlacion-2/
 
-[3] https://rpubs.com/Joaquin_AR/218467
+[3] *T-test: Comparación de medias poblacionales independientes* [en línea] [consulta: 2 de junio de 2022]. Disponible en: https://rpubs.com/Joaquin_AR/218467
+
+[4] *Chapter 10 Logistic Regression* [en línea] [consulta: 3 de junio de 2022]. Disponible en: https://daviddalpiaz.github.io/r4sl/logistic-regression.html
+
+[5] *Regresión lineal simple con R* [en línea] [consulta: 3 de junio de 2022]. Disponible en: https://rpubs.com/joser/RegresionSimple
+
+[6] *Coeficiente de determinación (R cuadrado)* [en línea] [consulta: 3 de junio de 2022]. Disponible en: https://economipedia.com/definiciones/r-cuadrado-coeficiente-determinacion.html
 
 # Firma de apartados
 
